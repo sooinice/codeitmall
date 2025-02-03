@@ -2,22 +2,48 @@ import { useEffect, useState } from "react";
 
 import Image from "next/image";
 import SizeReviewList from "@/components/SizeReviewList";
+import Spinner from "@/components/Spinner";
 import StarRating from "@/components/StarRating";
 import axios from "@/lib/axios";
 import styles from "@/styles/Product.module.css";
 import { useRouter } from "next/router";
 
-export default function Product() {
-  const [product, setProduct] = useState();
+export async function getStaticPaths() {
+  const res = await axios.get("/products/");
+  const products = res.data.ressults;
+  const path = products.map((product) => ({
+    params: { id: String(product.id) },
+  }));
+
+  return {
+    paths,
+    fallback: true,
+  };
+}
+
+export async function getStaticProps(context) {
+  const productId = context.params["id"];
+  let product;
+  try {
+    const res = await axios.get(`/products/${productId}`);
+    product = res.data;
+  } catch {
+    return {
+      notFound: true,
+    };
+  }
+
+  return {
+    props: {
+      product,
+    },
+  };
+}
+
+export default function Product({ product }) {
   const [sizeReviews, setSizeReviews] = useState([]);
   const router = useRouter();
   const { id } = router.query;
-
-  async function getProduct(targetId) {
-    const res = await axios.get(`/products/${targetId}`);
-    const nextProduct = res.data;
-    setProduct(nextProduct);
-  }
 
   async function getSizeReviews(targetId) {
     const res = await axios.get(`/size_reviews/?product_id=${targetId}`);
@@ -28,11 +54,15 @@ export default function Product() {
   useEffect(() => {
     if (!id) return;
 
-    getProduct(id);
     getSizeReviews(id);
   }, [id]);
 
-  if (!product) return null;
+  if (!product)
+    return (
+      <div className={styles.loading}>
+        <Spinner />
+      </div>
+    );
 
   return (
     <>
